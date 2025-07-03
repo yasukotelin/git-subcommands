@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Git サブコマンド: git fzf-switch
+# fzfを使ってブランチを選択してgit switchを実行
+
+# 必要なコマンドの存在確認
+if ! command -v fzf &> /dev/null; then
+    echo "Error: fzf is not installed. Please install fzf first."
+    exit 1
+fi
+
+# Gitリポジトリかどうかの確認
+if ! git rev-parse --git-dir &> /dev/null; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# 現在のブランチを取得
+current_branch=$(git branch --show-current)
+
+# ブランチ一覧を取得（更新日時順、現在のブランチは除外）
+branches=$(git for-each-ref --format='%(refname:short)' \
+    --sort=-committerdate \
+    refs/heads refs/remotes \
+    | grep -v "^${current_branch}$" \
+    | sed 's|^origin/||' \
+    | awk '!seen[$0]++')
+
+# プレビュー用の関数を定義
+preview_command='
+    branch={}
+    echo "=== Branch: $branch ==="
+    echo
+    
+    # ブランチの最新コミット情報
+    echo "📅 Latest commit:"
+    git log --oneline --format="%C(yellow)%h%C(reset) %C(green)%ad%C(reset) %s %C(blue)(%an)%C(reset)" \
+        --date=relative -n 1 "$branch" 2>/dev/null || echo "No commits found"
+    echo
+    
+    # ブランチの作成日時
+    echo "🕐 Branch created:"
+    git log --reverse --format="%C(green)%ad%C(reset) %C(blue)(%an)%C(reset)" \
+        --date=relative -n 1 "$branch" 2>/dev/null || echo "Unknown"
+    echo
+    
+    # 現在のブランチとの差分統計
+    if [ "$branch" != "'"$current_branch"'" ]; then
+        echo "📊 Diff with current branch ('"$current_branch"'):"
+        git diff --stat "'"$current_branch"'"..."$branch" 2>/dev/null || echo "No differences"
+        echo
+    fi
+    
+    # 最近のコミット履歴（5件）
+    echo "📋 Recent commits:"
+    git log --oneline --format="%C(yellow)%h%C(reset) %C(green)%ad%C(reset) %s" \
+        --date=short -n 5 "$branch" 2>/dev/null || echo "No commits found"
+'
+
+# fzfでブランチを選択
+selected_branch=$(echo "$branches" | fzf \
+    --prompt="Select branch to switch: " \
+    --height=80% \
+    --layout=reverse \
+    --border \
+    --preview="$preview_command" \
+    --preview-window=right:60% \
+    --header="Current: $current_branch | Press Enter to switch" \
+    --bind="ctrl-r:reload(git for-each-ref --format='%(refname:short)' --sort=-committerdate refs/heads refs/remotes | grep -v '^$current_branch$' | sed 's|^origin/||' | awk '!seen[\$0]++')")
+
+# 選択されたブランチがあるかチェック
+if [ -z "$selected_branch" ]; then
+    echo "No branch selected. Cancelled."
+    exit 0
+fi
+
+# 選択されたブランチに切り替え
+echo "Switching to branch: $selected_branch"
+
+# リモートブランチの場合は新しいローカルブランチを作成
+if git branch -r | grep -q "origin/$selected_branch" && ! git branch | grep -q "^..${selected_branch}$"; then
+    echo "Creating local branch from remote: $selected_branch"
+    git switch -c "$selected_branch" "origin/$selected_branch"
+else
+    git switch "$selected_branch"
+fi
+
+# 結果を表示
+if [ $? -eq 0 ]; then
+    echo "✅ Successfully switched to branch: $selected_branch"
+    echo
+    echo "📋 Latest commit on this branch:"
+    git log --oneline --format="%C(yellow)%h%C(reset) %C(green)%ad%C(reset) %s %C(blue)(%an)%C(reset)" \
+        --date=relative -n 1
+else
+    echo "❌ Failed to switch to branch: $selected_branch"
+    exit 1
+fi
