@@ -6,6 +6,8 @@ fzfを使用したGitサブコマンドのコレクション
 
 - `git fzf-switch` - ブランチを対話的に選択してswitch
 - `git fzf-branch-list` - ブランチを対話的に選択して標準出力に出力
+- `git fzf-branch-tree` - すべてのブランチのツリー状態を表示し、対話的に選択してswitch
+- `git rm-merged` - マージ済みのローカルブランチを一括削除
 
 ## セットアップ
 
@@ -31,6 +33,12 @@ git fzf-switch
 
 # ブランチを選択して出力
 git fzf-branch-list
+
+# ブランチのツリー状態を表示して選択・switch
+git fzf-branch-tree
+
+# マージ済みのローカルブランチを一括削除
+git rm-merged
 ```
 
 ## ライセンス

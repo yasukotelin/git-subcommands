@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# Git サブコマンド: git rm-merged
+# マージ済みのローカルブランチを一括削除
+
+# Gitリポジトリかどうかの確認
+if ! git rev-parse --git-dir &> /dev/null; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# 現在のブランチを取得
+current_branch=$(git branch --show-current)
+
+# マージ済みのローカルブランチを取得（main/master、develop、現在のブランチを除外）
+merged_branches=$(git branch --merged | \
+    grep -v "^\*" | \
+    grep -v "^..main$" | \
+    grep -v "^..master$" | \
+    grep -v "^..develop$" | \
+    grep -v "^..${current_branch}$" | \
+    sed 's/^..//')
+
+# マージ済みブランチが存在するかチェック
+if [ -z "$merged_branches" ]; then
+    echo "✅ No merged branches found to delete."
+    exit 0
+fi
+
+# マージ済みブランチの一覧を表示
+echo "📋 Following merged branches will be deleted:"
+echo "----------------------------------------"
+echo "$merged_branches" | while read -r branch; do
+    if [ -n "$branch" ]; then
+        # ブランチの最新コミット情報を表示
+        last_commit=$(git log --oneline --format="%h %ad %s" --date=short -n 1 "$branch" 2>/dev/null)
+        echo "  🌿 $branch"
+        echo "     └─ $last_commit"
+    fi
+done
+echo "----------------------------------------"
+
+# ブランチ数を数える
+branch_count=$(echo "$merged_branches" | grep -c "^.")
+echo "📊 Total: $branch_count branches"
+echo
+
+# 確認メッセージ
+echo "⚠️  Are you sure you want to delete these merged branches?"
+echo "   Current branch: $current_branch"
+echo
+read -p "Continue? (y/N): " -n 1 -r
+echo
+
+# ユーザーの確認
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "❌ Cancelled. No branches were deleted."
+    exit 0
+fi
+
+# ブランチの削除を実行
+echo "🗑️  Deleting merged branches..."
+deleted_count=0
+failed_count=0
+
+echo "$merged_branches" | while read -r branch; do
+    if [ -n "$branch" ]; then
+        if git branch -d "$branch" &> /dev/null; then
+            echo "  ✅ Deleted: $branch"
+            ((deleted_count++))
+        else
+            echo "  ❌ Failed to delete: $branch"
+            ((failed_count++))
+        fi
+    fi
+done
+
+# 結果サマリー
+echo
+echo "📊 Summary:"
+echo "  ✅ Deleted: $deleted_count branches"
+if [ $failed_count -gt 0 ]; then
+    echo "  ❌ Failed: $failed_count branches"
+fi
