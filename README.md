@@ -1,12 +1,14 @@
 # Git Subcommands
 
-fzfを使用したGitサブコマンドのコレクション
+Gitサブコマンドのコレクション
 
 ## サブコマンド
 
-- `git fzf-switch` - ブランチを対話的に選択してswitch
-- `git fzf-branch-list` - ブランチを対話的に選択して標準出力に出力
-- `git rm-merged` - マージ済みのローカルブランチを一括削除
+| サブコマンド | 説明 |
+|:---|:---|
+| `git fzf-switch` | fzfを利用してブランチを対話的に選択してswitchする |
+| `git fzf-branch-list` | fzfを利用してブランチの閲覧と、選択して標準出力に出力する |
+| `git rm-merged` | マージ済みのローカルブランチを一括削除 |
 
 ## セットアップ
 
